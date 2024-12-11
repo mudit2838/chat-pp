@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat App</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            background-color: #f9f9f9;
+        }
+        #login {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        #chat {
+            display: none;
+        }
+        #messages {
+            width: 300px;
+            height: 400px;
+            border: 1px solid #ccc;
+            overflow-y: auto;
+            margin-bottom: 10px;
+            padding: 5px;
+        }
+        #form {
+            display: flex;
+            width: 300px;
+        }
+        #input {
+            flex: 1;
+            padding: 10px;
+        }
+        #send {
+            padding: 10px;
+        }
+        #typing {
+            font-style: italic;
+            color: #555;
+        }
+        #activeUsers {
+            margin-top: 10px;
+            width: 300px;
+        }
+        #activeUsers ul {
+            list-style-type: none;
+            padding-left: 0;
+        }
+    </style>
+</head>
+<body>
+    <!-- Login Form -->
+    <div id="login">
+        <h2>Welcome to the Chat App</h2>
+        <input id="username" placeholder="Enter your username" />
+        <button id="loginButton">Join Chat</button>
+    </div>
+
+    <!-- Chat Section -->
+    <div id="chat">
+        <div id="messages"></div>
+        <form id="form">
+            <input id="input" autocomplete="off" placeholder="Type a message..." />
+            <button id="send">Send</button>
+        </form>
+        <div id="typing"></div>
+    </div>
+
+    <!-- Active Users List -->
+    <div id="activeUsers">
+        <h3>Active Users:</h3>
+        <ul id="userList"></ul>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+
+        // Elements
+        const loginDiv = document.getElementById('login');
+        const chatDiv = document.getElementById('chat');
+        const usernameInput = document.getElementById('username');
+        const loginButton = document.getElementById('loginButton');
+        const form = document.getElementById('form');
+        const input = document.getElementById('input');
+        const messages = document.getElementById('messages');
+        const typingDiv = document.getElementById('typing');
+        const userList = document.getElementById('userList');
+
+        // Variable to store the username
+        let username = '';
+
+        // Handle login
+        loginButton.addEventListener('click', () => {
+            if (usernameInput.value.trim()) {
+                username = usernameInput.value.trim();
+                loginDiv.style.display = 'none'; // Hide login form
+                chatDiv.style.display = 'block'; // Show chat interface
+                socket.emit('user joined', username); // Notify server
+            } else {
+                alert('Please enter a username');
+            }
+        });
+
+        // Handle sending messages
+        form.addEventListener('submit', (event) => {
+            event.preventDefault();
+            if (input.value) {
+                // Send the message along with the username
+                socket.emit('chat message', { username, message: input.value });
+                input.value = '';
+            }
+        });
+
+        // Listen for incoming messages
+        socket.on('chat message', (data) => {
+            const item = document.createElement('div');
+            item.textContent = `${data.username} [${data.timestamp}]: ${data.message}`;
+            messages.appendChild(item);
+            messages.scrollTop = messages.scrollHeight;
+        });
+
+        // Listen for users joining
+        socket.on('user joined', (name) => {
+            const item = document.createElement('div');
+            item.textContent = `${name} has joined the chat`;
+            item.style.fontStyle = 'italic';
+            messages.appendChild(item);
+        });
+
+        // Listen for users leaving
+        socket.on('user left', (name) => {
+            const item = document.createElement('div');
+            item.textContent = `${name} has left the chat`;
+            item.style.fontStyle = 'italic';
+            messages.appendChild(item);
+        });
+
+        // Listen for typing events
+        socket.on('typing', (username) => {
+            typingDiv.textContent = `${username} is typing...`;
+        });
+
+        // Listen for user list updates
+        socket.on('update users', (users) => {
+            userList.innerHTML = '';  // Clear current list
+            users.forEach(user => {
+                const li = document.createElement('li');
+                li.textContent = user;
+                userList.appendChild(li);
+            });
+        });
+
+        // Notify the server that the user is typing
+        input.addEventListener('input', () => {
+            socket.emit('typing');
+        });
+
+        // Clear the typing indicator after a delay
+        setInterval(() => {
+            typingDiv.textContent = ''; // Clear the typing message
+        }, 3000);
+
+    </script>
+</body>
+</html>
